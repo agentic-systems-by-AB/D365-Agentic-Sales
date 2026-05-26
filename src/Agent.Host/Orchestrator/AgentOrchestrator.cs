@@ -31,8 +31,19 @@ public class AgentOrchestrator
             await _planner
             .Create(goal);
 
-        await _runtime
+        var workflowResult =
+            await _runtime
             .Execute(plan);
+
+        if (!workflowResult.Success)
+        {
+            return new AgentResult
+            {
+                Success = false,
+                Message =
+                    workflowResult.Message
+            };
+        }
 
         var agent =
             _registry
@@ -45,7 +56,6 @@ public class AgentOrchestrator
             return new AgentResult
             {
                 Success = false,
-
                 Message =
                     "No matching agent found"
             };
