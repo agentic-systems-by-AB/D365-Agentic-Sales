@@ -1,6 +1,7 @@
 using Agent.Contracts.Enums;
 using Agent.Contracts.Interfaces;
 using Agent.Contracts.Models;
+using Agent.Workflow.Tracking;
 
 namespace Agent.Workflow.Services;
 
@@ -10,9 +11,20 @@ public class WorkflowRuntime : IWorkflowRuntime
     Execute(
         ExecutionPlan plan)
     {
+        var tracker = new WorkflowTracker();
+
         foreach (var step in plan.Steps)
         {
             step.Completed = true;
+
+            tracker.AddStepResult(
+                new WorkflowStepResult
+                {
+                    StepName = step.Name,
+                    Success = true,
+                    Message = "Completed",
+                    ExecutedOn = DateTime.UtcNow
+                });
         }
 
         return Task.FromResult(
