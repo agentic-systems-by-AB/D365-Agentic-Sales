@@ -1,5 +1,7 @@
+using System.Text.Json;
 using Agent.Contracts.Interfaces;
 using Agent.Contracts.Models;
+using Agent.Contracts.Models.LLM;
 using Agent.Contracts.Models.Planning;
 
 namespace Agent.Planner.Services;
@@ -7,15 +9,17 @@ namespace Agent.Planner.Services;
 public class Planner : IPlanner
 {
     private readonly IMemoryGateway _memory;
+    private readonly ILLMClient _llm;
 
-    public Planner(IMemoryGateway memory)
+    public Planner(IMemoryGateway memory, ILLMClient llm)
     {
         _memory = memory;
+        _llm = llm;
     }
 
-    public Task<ExecutionPlan> Create(Goal goal)
+    public async Task<ExecutionPlan> Create(Goal goal)
     {
-        var reasoning = BuildReasoning(goal);
+        var llmResponse = await BuildLlmPlan(goal);
 
         var steps = new List<WorkflowStep>
         {
@@ -29,7 +33,7 @@ public class Planner : IPlanner
             steps.Insert(0, new WorkflowStep { Name = "LoadContext" });
         }
 
-        var subGoals = reasoning.IdentifiedSubGoals
+        var subGoals = llmResponse.SubGoals
             .Select(sg => new SubGoal
             {
                 Objective = sg,
@@ -37,36 +41,46 @@ public class Planner : IPlanner
             })
             .ToList();
 
-        return Task.FromResult(
-            new ExecutionPlan
-            {
-                Id = Guid.NewGuid().ToString(),
-                Steps = steps,
-                SubGoals = subGoals
-            });
+        return new ExecutionPlan
+        {
+            Id = Guid.NewGuid().ToString(),
+            Steps = steps,
+            SubGoals = subGoals
+        };
     }
 
-    private PlanReasoning BuildReasoning(Goal goal)
+    private async Task<LlmPlanResponse> BuildLlmPlan(Goal goal)
     {
-        var reasoning = new PlanReasoning
-        {
-            GoalSummary = $"Analyze {goal.EntityType} execution for industry {goal.Industry}"
-        };
+        var prompt =
+            $"Return ONLY valid JSON. No explanation.\n" +
+            $"Schema:\n" +
+            $"{{ \"GoalSummary\": string, \"ReasoningSteps\": string[], \"SubGoals\": string[] }}\n\n" +
+            $"Goal: {goal.EntityType}\n" +
+            $"Industry: {goal.Industry}";
 
-        reasoning.ReasoningSteps.Add("Identify entity context");
-        reasoning.ReasoningSteps.Add("Evaluate industry patterns");
-        reasoning.ReasoningSteps.Add("Determine required sub-capabilities");
+        var raw = await _llm.Complete(prompt);
 
-        if (goal.Industry == "Restaurant")
+        return ParseStrict(raw);
+    }
+
+    private LlmPlanResponse ParseStrict(string raw)
+    {
+        try
         {
-            reasoning.IdentifiedSubGoals.Add("POS Opportunity Evaluation");
-            reasoning.IdentifiedSubGoals.Add("Upsell Potential Analysis");
+            return JsonSerializer.Deserialize<LlmPlanResponse>(raw,
+                new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                }) ?? new LlmPlanResponse();
         }
-        else
+        catch
         {
-            reasoning.IdentifiedSubGoals.Add("Generic Capability Assessment");
+            return new LlmPlanResponse
+            {
+                GoalSummary = "Fallback due to invalid JSON",
+                ReasoningSteps = { "LLM output invalid" },
+                SubGoals = { "Safe Execution Path" }
+            };
         }
-
-        return reasoning;
     }
 }
