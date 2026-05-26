@@ -3,6 +3,8 @@ using Agent.Contracts.Interfaces;
 using Agent.Contracts.Models;
 using Agent.Contracts.Models.LLM;
 using Agent.Contracts.Models.Planning;
+using Agent.Contracts.Models.Tracing;
+using Agent.Memory.Tracing;
 
 namespace Agent.Planner.Services;
 
@@ -10,28 +12,21 @@ public class Planner : IPlanner
 {
     private readonly IMemoryGateway _memory;
     private readonly ILLMClient _llm;
+    private readonly DecisionTraceStore _traceStore;
 
-    public Planner(IMemoryGateway memory, ILLMClient llm)
+    public Planner(
+        IMemoryGateway memory,
+        ILLMClient llm,
+        DecisionTraceStore traceStore)
     {
         _memory = memory;
         _llm = llm;
+        _traceStore = traceStore;
     }
 
     public async Task<ExecutionPlan> Create(Goal goal)
     {
-        var llmResponse = await BuildLlmPlan(goal);
-
-        var steps = new List<WorkflowStep>
-        {
-            new WorkflowStep { Name = "AnalyzeGoal" },
-            new WorkflowStep { Name = "SelectAgent" },
-            new WorkflowStep { Name = "Execute" }
-        };
-
-        if (_memory.Get($"result:{goal.EntityId}") != null)
-        {
-            steps.Insert(0, new WorkflowStep { Name = "LoadContext" });
-        }
+        var (llmResponse, raw) = await BuildLlmPlan(goal);
 
         var subGoals = llmResponse.SubGoals
             .Select(sg => new SubGoal
@@ -44,26 +39,53 @@ public class Planner : IPlanner
         return new ExecutionPlan
         {
             Id = Guid.NewGuid().ToString(),
-            Steps = steps,
+            Steps = BuildSteps(goal),
             SubGoals = subGoals
         };
     }
 
-    private async Task<LlmPlanResponse> BuildLlmPlan(Goal goal)
+    private List<WorkflowStep> BuildSteps(Goal goal)
+    {
+        var steps = new List<WorkflowStep>
+        {
+            new WorkflowStep { Name = "AnalyzeGoal" },
+            new WorkflowStep { Name = "SelectAgent" },
+            new WorkflowStep { Name = "Execute" }
+        };
+
+        if (_memory.Get($"result:{goal.EntityId}") != null)
+        {
+            steps.Insert(0, new WorkflowStep { Name = "LoadContext" });
+        }
+
+        return steps;
+    }
+
+    private async Task<(LlmPlanResponse parsed, string raw)> BuildLlmPlan(Goal goal)
     {
         var prompt =
-            $"Return ONLY valid JSON. No explanation.\n" +
-            $"Schema:\n" +
-            $"{{ \"GoalSummary\": string, \"ReasoningSteps\": string[], \"SubGoals\": string[] }}\n\n" +
+            $"Return ONLY valid JSON.\n" +
+            $"Schema: GoalSummary, ReasoningSteps[], SubGoals[]\n" +
             $"Goal: {goal.EntityType}\n" +
             $"Industry: {goal.Industry}";
 
         var raw = await _llm.Complete(prompt);
 
-        return ParseStrict(raw);
+        var parsed = Parse(raw);
+
+        _traceStore.Add(new AgentDecisionTrace
+        {
+            WorkflowId = goal.EntityId,
+            Step = "Planner",
+            Prompt = prompt,
+            Response = raw,
+            ReasoningSteps = parsed.ReasoningSteps
+        });
+
+        return (parsed, raw);
     }
 
-    private LlmPlanResponse ParseStrict(string raw)
+    private LlmPlanResponse Parse(string raw)
     {
         try
         {
@@ -77,8 +99,8 @@ public class Planner : IPlanner
         {
             return new LlmPlanResponse
             {
-                GoalSummary = "Fallback due to invalid JSON",
-                ReasoningSteps = { "LLM output invalid" },
+                GoalSummary = "Fallback parsing failure",
+                ReasoningSteps = { "Invalid JSON from LLM" },
                 SubGoals = { "Safe Execution Path" }
             };
         }

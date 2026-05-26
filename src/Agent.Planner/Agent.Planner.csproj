@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Agent.Contracts\Agent.Contracts.csproj" />
+    <ProjectReference Include="..\Agent.Memory\Agent.Memory.csproj" />
   </ItemGroup>
 
   <PropertyGroup>
