@@ -1,0 +1,8 @@
+<Solution>
+  <Project Path="Agent.Contracts/Agent.Contracts.csproj" />
+  <Project Path="Agent.Host/Agent.Host.csproj" />
+  <Project Path="Agent.Memory/Agent.Memory.csproj" />
+  <Project Path="Agent.Planner/Agent.Planner.csproj" />
+  <Project Path="Agent.Registry/Agent.Registry.csproj" />
+  <Project Path="Agent.Workflow/Agent.Workflow.csproj" />
+</Solution>
