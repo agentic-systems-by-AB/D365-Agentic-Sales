@@ -1,4 +1,3 @@
-using Agent.Contracts.Enums;
 using Agent.Contracts.Interfaces;
 using Agent.Contracts.Models;
 
@@ -6,44 +5,46 @@ namespace Agent.Planner.Services;
 
 public class Planner : IPlanner
 {
-    public Task<ExecutionPlan>
-    Create(Goal goal)
+    private readonly IMemoryGateway _memory;
+
+    public Planner(IMemoryGateway memory)
     {
-        var plan = new ExecutionPlan
+        _memory = memory;
+    }
+
+    public Task<ExecutionPlan> Create(Goal goal)
+    {
+        var previousResult = _memory.Get($"result:{goal.EntityId}");
+
+        var steps = new List<WorkflowStep>
         {
-            Goal = goal,
-
-            Steps =
-            {
-                new WorkflowStep
-                {
-                    Type =
-                        WorkflowStepType.AnalyzeGoal,
-
-                    Name =
-                        "Analyze Goal"
-                },
-
-                new WorkflowStep
-                {
-                    Type =
-                        WorkflowStepType.SelectAgent,
-
-                    Name =
-                        "Select Agent"
-                },
-
-                new WorkflowStep
-                {
-                    Type =
-                        WorkflowStepType.ExecuteAgent,
-
-                    Name =
-                        "Execute Agent"
-                }
-            }
+            new WorkflowStep { Name = "AnalyzeGoal" },
+            new WorkflowStep { Name = "SelectAgent" },
+            new WorkflowStep { Name = "Execute" }
         };
 
-        return Task.FromResult(plan);
+        if (previousResult != null)
+        {
+            steps.Insert(0, new WorkflowStep { Name = "LoadContext" });
+        }
+
+        var subGoals = new List<SubGoal>();
+
+        if (goal.Industry == "Restaurant")
+        {
+            subGoals.Add(new SubGoal
+            {
+                Objective = "POS Opportunity Evaluation",
+                EntityType = goal.EntityType
+            });
+        }
+
+        return Task.FromResult(
+            new ExecutionPlan
+            {
+                Id = Guid.NewGuid().ToString(),
+                Steps = steps,
+                SubGoals = subGoals
+            });
     }
 }

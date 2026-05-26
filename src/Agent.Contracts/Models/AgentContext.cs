@@ -1,3 +1,5 @@
+using Agent.Contracts.Interfaces;
+
 namespace Agent.Contracts.Models;
 
 public class AgentContext
@@ -12,8 +14,10 @@ public class AgentContext
         = string.Empty;
 
     public Dictionary<string, object>
-    Inputs { get; set; } = new();
+        Inputs { get; set; } = new();
 
     public Dictionary<string, object>
-    Memory { get; set; } = new();
+        Memory { get; set; } = new();
+
+    public IMemoryGateway? MemoryGateway { get; set; }
 }

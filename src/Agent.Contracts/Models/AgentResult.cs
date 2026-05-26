@@ -1,3 +1,5 @@
+using Agent.Contracts.Models;
+
 namespace Agent.Contracts.Models;
 
 public class AgentResult
@@ -8,4 +10,7 @@ public class AgentResult
         = string.Empty;
 
     public object? Data { get; set; }
+
+    public List<Goal> NextGoals { get; set; }
+        = new();
 }

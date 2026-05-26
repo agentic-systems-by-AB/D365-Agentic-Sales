@@ -1,14 +1,15 @@
+using Agent.Contracts.Models;
+
 namespace Agent.Contracts.Models;
 
 public class ExecutionPlan
 {
     public string Id { get; set; }
-        = Guid.NewGuid().ToString();
+        = string.Empty;
 
-    public Goal Goal { get; set; }
+    public List<WorkflowStep> Steps { get; set; }
         = new();
 
-    public List<WorkflowStep>
-        Steps { get; set; }
+    public List<SubGoal> SubGoals { get; set; }
         = new();
 }
