@@ -17,7 +17,7 @@ public class AgentController : ControllerBase
     }
 
     [HttpPost("execute")]
-    public async Task<ExecutionPlan>
+    public async Task<AgentResult>
     Execute(
         Goal goal)
     {

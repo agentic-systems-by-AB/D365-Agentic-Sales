@@ -18,10 +18,22 @@ public class AgentOrchestrator
         _registry = registry;
     }
 
-    public async Task<ExecutionPlan>
+    public async Task<AgentResult>
     Execute(
         Goal goal)
     {
-        return await _planner.Create(goal);
+        await _planner.Create(goal);
+
+        var agent =
+            _registry
+            .GetAgents()
+            .First();
+
+        return await agent.Execute(
+            new AgentContext
+            {
+                Industry =
+                    goal.Industry
+            });
     }
 }
