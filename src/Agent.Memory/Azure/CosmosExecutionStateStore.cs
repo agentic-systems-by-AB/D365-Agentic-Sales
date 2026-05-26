@@ -1,23 +1,60 @@
 using Agent.Contracts.Interfaces.Persistence;
 using Agent.Contracts.Models.Graph;
+using Microsoft.Azure.Cosmos;
 
 namespace Agent.Memory.Azure;
 
 public class CosmosExecutionStateStore : IExecutionGraphStore
 {
-    public Task SaveNode(ExecutionGraphNode node)
+    private readonly Container _container;
+
+    public CosmosExecutionStateStore(CosmosClient client)
     {
-        return Task.CompletedTask;
+        _container = client.GetContainer("agent-db", "execution-graph");
     }
 
-    public Task SaveEdge(string parentId, string childId)
+    public async Task SaveNode(ExecutionGraphNode node)
     {
-        return Task.CompletedTask;
+        node.Status ??= "Unknown";
+
+        await _container.UpsertItemAsync(
+            node,
+            new PartitionKey(node.GoalId));
     }
 
-    public Task<IReadOnlyDictionary<string, ExecutionGraphNode>> GetGraph()
+    public async Task SaveEdge(string parentId, string childId)
     {
-        return Task.FromResult<IReadOnlyDictionary<string, ExecutionGraphNode>>(
-            new Dictionary<string, ExecutionGraphNode>());
+        var edge = new
+        {
+            id = $"{parentId}->{childId}",
+            parentId,
+            childId,
+            type = "edge"
+        };
+
+        await _container.UpsertItemAsync(
+            edge,
+            new PartitionKey(parentId));
+    }
+
+    public async Task<IReadOnlyDictionary<string, ExecutionGraphNode>> GetGraph()
+    {
+        var query = new QueryDefinition("SELECT * FROM c WHERE c.type != 'edge'");
+
+        var iterator = _container.GetItemQueryIterator<ExecutionGraphNode>(query);
+
+        var result = new Dictionary<string, ExecutionGraphNode>();
+
+        while (iterator.HasMoreResults)
+        {
+            var response = await iterator.ReadNextAsync();
+
+            foreach (var item in response)
+            {
+                result[item.GoalId] = item;
+            }
+        }
+
+        return result;
     }
 }
