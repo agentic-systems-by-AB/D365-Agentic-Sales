@@ -1,4 +1,5 @@
 using Agent.Contracts.Interfaces;
+using Agent.Registry.Agents;
 
 namespace Agent.Registry.Services;
 
@@ -8,7 +9,10 @@ public class AgentRegistry : IAgentRegistry
 
     public AgentRegistry()
     {
-        _agents = new List<IAgent>();
+        _agents =
+        [
+            new LeadAgent()
+        ];
     }
 
     public List<IAgent> GetAgents()
