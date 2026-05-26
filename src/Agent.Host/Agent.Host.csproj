@@ -14,6 +14,7 @@
     <ProjectReference Include="..\Agent.Contracts\Agent.Contracts.csproj" />
     <ProjectReference Include="..\Agent.Registry\Agent.Registry.csproj" />
     <ProjectReference Include="..\Agent.Planner\Agent.Planner.csproj" />
+    <ProjectReference Include="..\Agent.Workflow\Agent.Workflow.csproj" />
   </ItemGroup>
 
 </Project>

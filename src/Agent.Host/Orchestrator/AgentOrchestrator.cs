@@ -9,20 +9,30 @@ public class AgentOrchestrator
 
     private readonly IAgentRegistry _registry;
 
+    private readonly IWorkflowRuntime _runtime;
+
     public AgentOrchestrator(
         IPlanner planner,
-        IAgentRegistry registry)
+        IAgentRegistry registry,
+        IWorkflowRuntime runtime)
     {
         _planner = planner;
 
         _registry = registry;
+
+        _runtime = runtime;
     }
 
     public async Task<AgentResult>
     Execute(
         Goal goal)
     {
-        await _planner.Create(goal);
+        var plan =
+            await _planner
+            .Create(goal);
+
+        await _runtime
+            .Execute(plan);
 
         var agent =
             _registry
@@ -35,6 +45,7 @@ public class AgentOrchestrator
             return new AgentResult
             {
                 Success = false,
+
                 Message =
                     "No matching agent found"
             };
