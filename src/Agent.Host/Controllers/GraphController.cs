@@ -1,4 +1,4 @@
-using Agent.Workflow.Tracking;
+using Agent.Contracts.Interfaces.Persistence;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Agent.Host.Controllers;
@@ -7,16 +7,17 @@ namespace Agent.Host.Controllers;
 [Route("api/graph")]
 public class GraphController : ControllerBase
 {
-    private readonly ExecutionGraphTracker _tracker;
+    private readonly IExecutionGraphStore _store;
 
-    public GraphController(ExecutionGraphTracker tracker)
+    public GraphController(IExecutionGraphStore store)
     {
-        _tracker = tracker;
+        _store = store;
     }
 
-    [HttpGet("all")]
-    public IActionResult GetAll()
+    [HttpGet]
+    public async Task<IActionResult> Get()
     {
-        return Ok(_tracker.GetGraph());
+        var graph = await _store.GetGraph();
+        return Ok(graph);
     }
 }
