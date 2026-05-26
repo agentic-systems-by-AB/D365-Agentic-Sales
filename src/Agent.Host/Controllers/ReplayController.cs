@@ -1,4 +1,4 @@
-using Agent.Contracts.Interfaces;
+using Agent.Contracts.Interfaces.Persistence;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Agent.Host.Controllers;
@@ -7,22 +7,26 @@ namespace Agent.Host.Controllers;
 [Route("api/replay")]
 public class ReplayController : ControllerBase
 {
-    private readonly IEventReplayStore _replayStore;
+    private readonly IEventStreamStore _stream;
 
-    public ReplayController(IEventReplayStore replayStore)
+    public ReplayController(IEventStreamStore stream)
     {
-        _replayStore = replayStore;
+        _stream = stream;
     }
 
     [HttpGet("{workflowId}")]
     public async Task<IActionResult> Get(string workflowId)
     {
-        var events = await _replayStore.GetAll(workflowId);
+        // Safe cast only for in-memory implementation
+        if (_stream is Agent.Memory.Eventing.InMemoryEventStreamBroker broker)
+        {
+            var events = await broker.GetEvents(workflowId);
+            return Ok(events.OrderBy(e => e.Timestamp));
+        }
 
         return Ok(new
         {
-            WorkflowId = workflowId,
-            Events = events
+            Message = "Replay not supported for current stream implementation"
         });
     }
 }
