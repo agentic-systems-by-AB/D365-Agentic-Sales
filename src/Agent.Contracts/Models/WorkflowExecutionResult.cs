@@ -1,3 +1,5 @@
+using Agent.Contracts.Models;
+
 namespace Agent.Contracts.Models;
 
 public class WorkflowExecutionResult
@@ -8,5 +10,8 @@ public class WorkflowExecutionResult
         = string.Empty;
 
     public WorkflowState State { get; set; }
+        = new();
+
+    public List<WorkflowStepResult> StepResults { get; set; }
         = new();
 }

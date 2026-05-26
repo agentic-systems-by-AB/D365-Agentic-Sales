@@ -46,7 +46,11 @@ public class WorkflowRuntime : IWorkflowRuntime
 
                         CompletedOn =
                             DateTime.UtcNow
-                    }
+                    },
+
+                StepResults =
+                    tracker.GetResults()
+                        .ToList()
             });
     }
 }
