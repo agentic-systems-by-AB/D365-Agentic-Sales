@@ -4,6 +4,7 @@ namespace Agent.Contracts.Interfaces;
 
 public interface IWorkflowRuntime
 {
-    Task Execute(
+    Task<WorkflowExecutionResult>
+    Execute(
         ExecutionPlan plan);
 }
