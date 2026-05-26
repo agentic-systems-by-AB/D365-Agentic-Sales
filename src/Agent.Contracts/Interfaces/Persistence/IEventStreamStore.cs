@@ -2,7 +2,7 @@ namespace Agent.Contracts.Interfaces.Persistence;
 
 public interface IEventStreamStore
 {
-    Task Append(object @event);
+    Task Publish(string workflowId, object @event);
 
-    Task<List<object>> Read(string workflowId);
+    Task Subscribe(string workflowId, Func<object, Task> handler);
 }

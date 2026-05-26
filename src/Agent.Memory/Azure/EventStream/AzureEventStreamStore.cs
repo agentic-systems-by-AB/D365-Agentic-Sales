@@ -4,16 +4,19 @@ namespace Agent.Memory.Azure.EventStream;
 
 public class AzureEventStreamStore : IEventStreamStore
 {
-    public Task Append(object @event)
+    public Task Publish(string workflowId, object @event)
     {
-        // TODO: Replace with Azure Event Hub / Service Bus publish
+        // TODO: Replace with Azure Service Bus / Event Hub publish
+        // Partition key = workflowId
+
         return Task.CompletedTask;
     }
 
-    public Task<List<object>> Read(string workflowId)
+    public Task Subscribe(string workflowId, Func<object, Task> handler)
     {
-        // Event Hub is not replay-oriented
-        // Typically paired with storage (Cosmos / Blob / ReplayStore)
-        return Task.FromResult(new List<object>());
+        // TODO: Replace with Azure Service Bus / Event Hub consumer
+        // Subscription model depends on topic/queue strategy
+
+        return Task.CompletedTask;
     }
 }
