@@ -1,3 +1,5 @@
+using Agent.Contracts.Interfaces.Persistence;
+using Agent.Contracts.Models.Graph;
 using System.Collections.Concurrent;
 
 namespace Agent.Workflow.Tracking;
@@ -5,28 +7,44 @@ namespace Agent.Workflow.Tracking;
 public class ExecutionGraphTracker
 {
     private readonly ConcurrentDictionary<string, ExecutionGraphNode> _nodes = new();
+    private readonly IExecutionGraphStore _store;
 
-    public void AddOrUpdateNode(ExecutionGraphNode node)
+    public ExecutionGraphTracker(IExecutionGraphStore store)
     {
-        _nodes[node.GoalId] = node;
+        _store = store;
     }
 
-    public void LinkChild(string parentGoalId, string childGoalId)
+    public async Task AddOrUpdateNode(ExecutionGraphNode node)
+    {
+        _nodes[node.GoalId] = node;
+
+        await _store.SaveNode(node);
+    }
+
+    public async Task LinkChild(string parentGoalId, string childGoalId)
     {
         if (_nodes.TryGetValue(childGoalId, out var child))
         {
             child.ParentGoalId = parentGoalId;
+
+            await _store.SaveNode(child);
         }
         else
         {
-            _nodes[childGoalId] = new ExecutionGraphNode
+            var node = new ExecutionGraphNode
             {
                 GoalId = childGoalId,
                 ParentGoalId = parentGoalId,
                 Status = "Pending",
                 Timestamp = DateTime.UtcNow
             };
+
+            _nodes[childGoalId] = node;
+
+            await _store.SaveNode(node);
         }
+
+        await _store.SaveEdge(parentGoalId, childGoalId);
     }
 
     public IReadOnlyDictionary<string, ExecutionGraphNode> GetGraph()

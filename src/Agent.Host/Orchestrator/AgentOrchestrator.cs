@@ -1,5 +1,7 @@
 using Agent.Contracts.Interfaces;
+using Agent.Contracts.Interfaces.Persistence;
 using Agent.Contracts.Models;
+using Agent.Contracts.Models.Graph;
 using Agent.Workflow.Tracking;
 using System.Collections.Concurrent;
 using System.Security.Cryptography;
@@ -70,7 +72,7 @@ public class AgentOrchestrator
             Timestamp = DateTime.UtcNow
         };
 
-        _graph.AddOrUpdateNode(node);
+        await _graph.AddOrUpdateNode(node);
 
         var plan = await _planner.Create(goal);
 
@@ -79,7 +81,7 @@ public class AgentOrchestrator
         if (!workflowResult.Success)
         {
             node.Status = "Failed";
-            _graph.AddOrUpdateNode(node);
+            await _graph.AddOrUpdateNode(node);
 
             return new AgentResult
             {
@@ -94,7 +96,7 @@ public class AgentOrchestrator
         if (agent == null)
         {
             node.Status = "Failed";
-            _graph.AddOrUpdateNode(node);
+            await _graph.AddOrUpdateNode(node);
 
             return new AgentResult
             {
@@ -124,7 +126,7 @@ public class AgentOrchestrator
         node.Status = "Completed";
         node.AgentName = agent.Name;
 
-        _graph.AddOrUpdateNode(node);
+        await _graph.AddOrUpdateNode(node);
 
         _memory.Set($"result:{goal.EntityId}", result);
 
@@ -132,7 +134,7 @@ public class AgentOrchestrator
         {
             foreach (var nextGoal in result.NextGoals)
             {
-                _graph.LinkChild(goal.EntityId, nextGoal.EntityId);
+                await _graph.LinkChild(goal.EntityId, nextGoal.EntityId);
 
                 await ExecuteInternal(nextGoal, depth + 1);
             }
@@ -149,7 +151,7 @@ public class AgentOrchestrator
                     Industry = goal.Industry
                 };
 
-                _graph.LinkChild(goal.EntityId, derivedGoal.EntityId);
+                await _graph.LinkChild(goal.EntityId, derivedGoal.EntityId);
 
                 await ExecuteInternal(derivedGoal, depth + 1);
             }

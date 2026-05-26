@@ -9,10 +9,14 @@ namespace Agent.Workflow.Services;
 public class WorkflowRuntime : IWorkflowRuntime
 {
     private readonly IEventBus _eventBus;
+    private readonly IEventReplayStore _replayStore;
 
-    public WorkflowRuntime(IEventBus eventBus)
+    public WorkflowRuntime(
+        IEventBus eventBus,
+        IEventReplayStore replayStore)
     {
         _eventBus = eventBus;
+        _replayStore = replayStore;
     }
 
     public async Task<WorkflowExecutionResult>
@@ -21,11 +25,13 @@ public class WorkflowRuntime : IWorkflowRuntime
     {
         try
         {
-            await _eventBus.Publish(
-                new WorkflowStarted
-                {
-                    WorkflowId = plan.Id
-                });
+            var started = new WorkflowStarted
+            {
+                WorkflowId = plan.Id
+            };
+
+            await _eventBus.Publish(started);
+            await _replayStore.Save(started);
 
             var tracker = new WorkflowTracker();
 
@@ -33,26 +39,35 @@ public class WorkflowRuntime : IWorkflowRuntime
             {
                 step.Completed = true;
 
-                var stepResult = new WorkflowStepResult
+                var stepEvent = new StepCompleted
                 {
+                    WorkflowId = plan.Id,
                     StepName = step.Name,
-                    Success = true,
-                    Message = "Completed",
-                    ExecutedOn = DateTime.UtcNow
+                    Timestamp = DateTime.UtcNow
                 };
 
-                tracker.AddStepResult(stepResult);
-
-                await _eventBus.Publish(
-                    new StepCompleted
+                tracker.AddStepResult(
+                    new WorkflowStepResult
                     {
-                        WorkflowId = plan.Id,
                         StepName = step.Name,
-                        Timestamp = DateTime.UtcNow
+                        Success = true,
+                        Message = "Completed",
+                        ExecutedOn = DateTime.UtcNow
                     });
+
+                await _eventBus.Publish(stepEvent);
+                await _replayStore.Save(stepEvent);
             }
 
-            var result = new WorkflowExecutionResult
+            var completed = new WorkflowCompleted
+            {
+                WorkflowId = plan.Id
+            };
+
+            await _eventBus.Publish(completed);
+            await _replayStore.Save(completed);
+
+            return new WorkflowExecutionResult
             {
                 Success = true,
                 Message = "Workflow executed",
@@ -64,24 +79,18 @@ public class WorkflowRuntime : IWorkflowRuntime
                 },
                 StepResults = tracker.GetResults().ToList()
             };
-
-            await _eventBus.Publish(
-                new WorkflowCompleted
-                {
-                    WorkflowId = plan.Id
-                });
-
-            return result;
         }
         catch (Exception ex)
         {
-            await _eventBus.Publish(
-                new WorkflowFailed
-                {
-                    WorkflowId = plan.Id,
-                    Error = ex.Message,
-                    Timestamp = DateTime.UtcNow
-                });
+            var failed = new WorkflowFailed
+            {
+                WorkflowId = plan.Id,
+                Error = ex.Message,
+                Timestamp = DateTime.UtcNow
+            };
+
+            await _eventBus.Publish(failed);
+            await _replayStore.Save(failed);
 
             return new WorkflowExecutionResult
             {
