@@ -1,10 +1,12 @@
 using Agent.Contracts.Interfaces;
 using Agent.Contracts.Interfaces.Persistence;
 using Agent.Host.Orchestrator;
+using Agent.Memory.LLM;
+using Agent.Memory.LLM.Azure;
+using Agent.Memory.LLM.OpenAI;
 using Agent.Memory.Persistence;
 using Agent.Memory.Replay;
 using Agent.Memory.Services;
-using Agent.Memory.Azure;
 using Agent.Memory.Azure.EventStream;
 using Agent.Planner.Services;
 using Agent.Registry.Services;
@@ -15,6 +17,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 
+var llmMode = builder.Configuration.GetValue<string>("LLM:Mode") ?? "Local";
 var useAzure = builder.Configuration.GetValue<string>("Runtime:Mode") == "Azure";
 
 /* =========================
@@ -34,19 +37,28 @@ builder.Services.AddSingleton<MemoryStore>();
 builder.Services.AddSingleton<IMemoryGateway, MemoryGateway>();
 
 /* =========================
-   GRAPH STORE (STATE)
+   LLM PROVIDER SWITCH
 ========================= */
 
-if (useAzure)
+if (llmMode == "Azure")
 {
-    builder.Services.AddSingleton<IExecutionGraphStore, CosmosExecutionStateStore>();
-    builder.Services.AddSingleton<ExecutionGraphTracker>();
+    builder.Services.AddSingleton<ILLMClient, AzureOpenAIClient>();
+}
+else if (llmMode == "OpenAI")
+{
+    builder.Services.AddSingleton<ILLMClient, OpenAIClient>();
 }
 else
 {
-    builder.Services.AddSingleton<IExecutionGraphStore, InMemoryExecutionGraphStore>();
-    builder.Services.AddSingleton<ExecutionGraphTracker>();
+    builder.Services.AddSingleton<ILLMClient, InMemoryLLMClient>();
 }
+
+/* =========================
+   GRAPH STORE
+========================= */
+
+builder.Services.AddSingleton<IExecutionGraphStore, InMemoryExecutionGraphStore>();
+builder.Services.AddSingleton<ExecutionGraphTracker>();
 
 /* =========================
    EVENT REPLAY
@@ -55,23 +67,14 @@ else
 builder.Services.AddSingleton<IEventReplayStore, InMemoryEventReplayStore>();
 
 /* =========================
-   EVENT STREAM (TRANSPORT)
+   EVENT STREAM
 ========================= */
 
-if (useAzure)
-{
-    builder.Services.AddSingleton<IEventStreamStore, AzureEventStreamStore>();
-}
-else
-{
-    builder.Services.AddSingleton<IEventStreamStore, AzureEventStreamStore>(); 
-    // intentionally same stub until real Event Hub wiring
-}
+builder.Services.AddSingleton<IEventStreamStore, AzureEventStreamStore>();
 
 var app = builder.Build();
 
 app.MapControllers();
-
 app.MapGet("/health", () => "running");
 
 app.Run();

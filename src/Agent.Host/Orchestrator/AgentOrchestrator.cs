@@ -43,27 +43,17 @@ public class AgentOrchestrator
     {
         if (depth > MaxDepth)
         {
-            return new AgentResult
-            {
-                Success = false,
-                Message = "Max execution depth reached"
-            };
+            return new AgentResult { Success = false, Message = "Max depth reached" };
         }
 
-        var goalKey = GenerateKey(goal);
+        var key = GenerateKey(goal);
 
-        if (_executedGoals.ContainsKey(goalKey))
+        if (_executedGoals.ContainsKey(key))
         {
-            return new AgentResult
-            {
-                Success = true,
-                Message = "Skipped duplicate goal execution"
-            };
+            return new AgentResult { Success = true, Message = "Duplicate skipped" };
         }
 
-        _executedGoals[goalKey] = true;
-
-        _memory.Set($"goal:{goal.EntityId}", goal);
+        _executedGoals[key] = true;
 
         var node = new ExecutionGraphNode
         {
@@ -76,18 +66,14 @@ public class AgentOrchestrator
 
         var plan = await _planner.Create(goal);
 
-        var workflowResult = await _runtime.Execute(plan);
+        var workflowResult = await ExecutionRetry.Execute(() =>
+            _runtime.Execute(plan));
 
         if (!workflowResult.Success)
         {
             node.Status = "Failed";
             await _graph.AddOrUpdateNode(node);
-
-            return new AgentResult
-            {
-                Success = false,
-                Message = workflowResult.Message
-            };
+            return new AgentResult { Success = false, Message = workflowResult.Message };
         }
 
         var agent = _registry.GetAgents()
@@ -97,65 +83,37 @@ public class AgentOrchestrator
         {
             node.Status = "Failed";
             await _graph.AddOrUpdateNode(node);
-
-            return new AgentResult
-            {
-                Success = false,
-                Message = "No matching agent found"
-            };
+            return new AgentResult { Success = false, Message = "No agent found" };
         }
 
         var context = new AgentContext
         {
             WorkflowId = plan.Id,
-            Industry = goal.Industry,
-            Inputs =
-            {
-                ["goal"] = goal
-            },
-            Memory =
-            {
-                ["goal"] = _memory.Get($"goal:{goal.EntityId}"),
-                ["result"] = _memory.Get($"result:{goal.EntityId}")
-            },
-            MemoryGateway = _memory
+            Industry = goal.Industry
         };
 
-        var result = await agent.Execute(context);
+        var result = await ExecutionRetry.Execute(() =>
+            agent.Execute(context));
 
         node.Status = "Completed";
         node.AgentName = agent.Name;
 
         await _graph.AddOrUpdateNode(node);
 
-        _memory.Set($"result:{goal.EntityId}", result);
-
-        if (result.NextGoals != null && result.NextGoals.Any())
+        if (result.NextGoals == null || !result.NextGoals.Any())
         {
-            foreach (var nextGoal in result.NextGoals)
+            return result;
+        }
+
+        var tasks = result.NextGoals.Select(nextGoal =>
+            ExecutionThrottle.Run(async () =>
             {
                 await _graph.LinkChild(goal.EntityId, nextGoal.EntityId);
+                return await ExecuteInternal(nextGoal, depth + 1);
+            })
+        );
 
-                await ExecuteInternal(nextGoal, depth + 1);
-            }
-        }
-
-        if (plan.SubGoals != null && plan.SubGoals.Any())
-        {
-            foreach (var subGoal in plan.SubGoals)
-            {
-                var derivedGoal = new Goal
-                {
-                    EntityId = Guid.NewGuid().ToString(),
-                    EntityType = subGoal.EntityType,
-                    Industry = goal.Industry
-                };
-
-                await _graph.LinkChild(goal.EntityId, derivedGoal.EntityId);
-
-                await ExecuteInternal(derivedGoal, depth + 1);
-            }
-        }
+        await Task.WhenAll(tasks);
 
         return result;
     }
@@ -163,11 +121,7 @@ public class AgentOrchestrator
     private string GenerateKey(Goal goal)
     {
         var raw = $"{goal.EntityType}:{goal.EntityId}:{goal.Industry}";
-
         using var sha = SHA256.Create();
-
-        var hash = sha.ComputeHash(Encoding.UTF8.GetBytes(raw));
-
-        return Convert.ToBase64String(hash);
+        return Convert.ToBase64String(sha.ComputeHash(Encoding.UTF8.GetBytes(raw)));
     }
 }
