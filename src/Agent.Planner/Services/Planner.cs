@@ -1,5 +1,6 @@
 using Agent.Contracts.Interfaces;
 using Agent.Contracts.Models;
+using Agent.Contracts.Models.Planning;
 
 namespace Agent.Planner.Services;
 
@@ -14,7 +15,7 @@ public class Planner : IPlanner
 
     public Task<ExecutionPlan> Create(Goal goal)
     {
-        var previousResult = _memory.Get($"result:{goal.EntityId}");
+        var reasoning = BuildReasoning(goal);
 
         var steps = new List<WorkflowStep>
         {
@@ -23,21 +24,18 @@ public class Planner : IPlanner
             new WorkflowStep { Name = "Execute" }
         };
 
-        if (previousResult != null)
+        if (_memory.Get($"result:{goal.EntityId}") != null)
         {
             steps.Insert(0, new WorkflowStep { Name = "LoadContext" });
         }
 
-        var subGoals = new List<SubGoal>();
-
-        if (goal.Industry == "Restaurant")
-        {
-            subGoals.Add(new SubGoal
+        var subGoals = reasoning.IdentifiedSubGoals
+            .Select(sg => new SubGoal
             {
-                Objective = "POS Opportunity Evaluation",
+                Objective = sg,
                 EntityType = goal.EntityType
-            });
-        }
+            })
+            .ToList();
 
         return Task.FromResult(
             new ExecutionPlan
@@ -46,5 +44,29 @@ public class Planner : IPlanner
                 Steps = steps,
                 SubGoals = subGoals
             });
+    }
+
+    private PlanReasoning BuildReasoning(Goal goal)
+    {
+        var reasoning = new PlanReasoning
+        {
+            GoalSummary = $"Analyze {goal.EntityType} execution for industry {goal.Industry}"
+        };
+
+        reasoning.ReasoningSteps.Add("Identify entity context");
+        reasoning.ReasoningSteps.Add("Evaluate industry patterns");
+        reasoning.ReasoningSteps.Add("Determine required sub-capabilities");
+
+        if (goal.Industry == "Restaurant")
+        {
+            reasoning.IdentifiedSubGoals.Add("POS Opportunity Evaluation");
+            reasoning.IdentifiedSubGoals.Add("Upsell Potential Analysis");
+        }
+        else
+        {
+            reasoning.IdentifiedSubGoals.Add("Generic Capability Assessment");
+        }
+
+        return reasoning;
     }
 }
