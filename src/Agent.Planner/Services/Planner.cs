@@ -1,3 +1,4 @@
+using Agent.Contracts.Enums;
 using Agent.Contracts.Interfaces;
 using Agent.Contracts.Models;
 
@@ -11,11 +12,35 @@ public class Planner : IPlanner
         var plan = new ExecutionPlan
         {
             Goal = goal,
+
             Steps =
             {
-                "AnalyzeGoal",
-                "SelectAgent",
-                "Execute"
+                new WorkflowStep
+                {
+                    Type =
+                        WorkflowStepType.AnalyzeGoal,
+
+                    Name =
+                        "Analyze Goal"
+                },
+
+                new WorkflowStep
+                {
+                    Type =
+                        WorkflowStepType.SelectAgent,
+
+                    Name =
+                        "Select Agent"
+                },
+
+                new WorkflowStep
+                {
+                    Type =
+                        WorkflowStepType.ExecuteAgent,
+
+                    Name =
+                        "Execute Agent"
+                }
             }
         };
 

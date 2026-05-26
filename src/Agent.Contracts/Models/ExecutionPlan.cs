@@ -8,6 +8,7 @@ public class ExecutionPlan
     public Goal Goal { get; set; }
         = new();
 
-    public List<string> Steps { get; set; }
+    public List<WorkflowStep>
+        Steps { get; set; }
         = new();
 }
