@@ -17,6 +17,8 @@ builder.Services.AddScoped<IWorkflowRuntime, WorkflowRuntime>();
 
 builder.Services.AddSingleton<MemoryStore>();
 
+builder.Services.AddSingleton<IMemoryGateway, MemoryGateway>();
+
 builder.Services.AddScoped<AgentOrchestrator>();
 
 var app = builder.Build();

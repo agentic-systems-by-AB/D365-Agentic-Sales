@@ -1,6 +1,5 @@
 using Agent.Contracts.Interfaces;
 using Agent.Contracts.Models;
-using Agent.Memory.Services;
 
 namespace Agent.Host.Orchestrator;
 
@@ -12,13 +11,13 @@ public class AgentOrchestrator
 
     private readonly IWorkflowRuntime _runtime;
 
-    private readonly MemoryStore _memory;
+    private readonly IMemoryGateway _memory;
 
     public AgentOrchestrator(
         IPlanner planner,
         IAgentRegistry registry,
         IWorkflowRuntime runtime,
-        MemoryStore memory)
+        IMemoryGateway memory)
     {
         _planner = planner;
 
