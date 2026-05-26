@@ -15,6 +15,7 @@
     <ProjectReference Include="..\Agent.Registry\Agent.Registry.csproj" />
     <ProjectReference Include="..\Agent.Planner\Agent.Planner.csproj" />
     <ProjectReference Include="..\Agent.Workflow\Agent.Workflow.csproj" />
+    <ProjectReference Include="..\Agent.Memory\Agent.Memory.csproj" />
   </ItemGroup>
 
 </Project>

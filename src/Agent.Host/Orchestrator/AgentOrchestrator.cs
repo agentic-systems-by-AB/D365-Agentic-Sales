@@ -1,5 +1,6 @@
 using Agent.Contracts.Interfaces;
 using Agent.Contracts.Models;
+using Agent.Memory.Services;
 
 namespace Agent.Host.Orchestrator;
 
@@ -11,22 +12,31 @@ public class AgentOrchestrator
 
     private readonly IWorkflowRuntime _runtime;
 
+    private readonly MemoryStore _memory;
+
     public AgentOrchestrator(
         IPlanner planner,
         IAgentRegistry registry,
-        IWorkflowRuntime runtime)
+        IWorkflowRuntime runtime,
+        MemoryStore memory)
     {
         _planner = planner;
 
         _registry = registry;
 
         _runtime = runtime;
+
+        _memory = memory;
     }
 
     public async Task<AgentResult>
     Execute(
         Goal goal)
     {
+        _memory.Set(
+            $"goal:{goal.EntityId}",
+            goal);
+
         var plan =
             await _planner
             .Create(goal);
@@ -61,11 +71,18 @@ public class AgentOrchestrator
             };
         }
 
-        return await agent.Execute(
-            new AgentContext
-            {
-                Industry =
-                    goal.Industry
-            });
+        var result =
+            await agent.Execute(
+                new AgentContext
+                {
+                    Industry =
+                        goal.Industry
+                });
+
+        _memory.Set(
+            $"result:{goal.EntityId}",
+            result);
+
+        return result;
     }
 }
