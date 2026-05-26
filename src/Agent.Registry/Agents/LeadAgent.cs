@@ -7,6 +7,15 @@ public class LeadAgent : IAgent
 {
     public string Name => "LeadAgent";
 
+    public bool CanHandle(
+        Goal goal)
+    {
+        return goal.EntityType
+            .Equals(
+                "Lead",
+                StringComparison.OrdinalIgnoreCase);
+    }
+
     public Task<AgentResult>
     Execute(
         AgentContext context)
@@ -15,7 +24,8 @@ public class LeadAgent : IAgent
             new AgentResult
             {
                 Success = true,
-                Message = "Lead analyzed successfully",
+                Message =
+                    "Lead analyzed successfully",
 
                 Data = new
                 {

@@ -6,6 +6,9 @@ public interface IAgent
 {
     string Name { get; }
 
+    bool CanHandle(
+        Goal goal);
+
     Task<AgentResult>
     Execute(
         AgentContext context);

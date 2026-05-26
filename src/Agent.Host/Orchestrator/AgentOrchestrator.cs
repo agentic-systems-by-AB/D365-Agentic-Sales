@@ -27,7 +27,18 @@ public class AgentOrchestrator
         var agent =
             _registry
             .GetAgents()
-            .First();
+            .FirstOrDefault(
+                x => x.CanHandle(goal));
+
+        if (agent == null)
+        {
+            return new AgentResult
+            {
+                Success = false,
+                Message =
+                    "No matching agent found"
+            };
+        }
 
         return await agent.Execute(
             new AgentContext
